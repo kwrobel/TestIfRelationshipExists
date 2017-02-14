@@ -200,4 +200,19 @@ public class PurchaseOrderJpaController implements Serializable {
         }
     }
     
+    public List<PurchaseOrder> findPurchaseOrderEntities(Customer customer) {
+        EntityManager em = getEntityManager();
+        List resultList = null;
+        if (customer != null) {
+            try {
+                Query poQry = em.createNamedQuery("PurchaseOrder.findByCustomerId");
+                poQry.setParameter("customerId", customer);
+                resultList = poQry.getResultList();
+            } finally {
+                em.close();
+            }
+        }
+        return resultList;
+    }
+
 }

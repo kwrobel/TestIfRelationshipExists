@@ -17,9 +17,12 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
+import javax.persistence.NoResultException;
 import testifrelationshipexists.dal.exceptions.IllegalOrphanException;
 import testifrelationshipexists.dal.exceptions.NonexistentEntityException;
 import testifrelationshipexists.dal.exceptions.PreexistingEntityException;
+import testifrelationshipexists.dal.util.PurchaseOrderInclusionMethodType;
+import testifrelationshipexists.dal.util.ExistenceMethodType;
 import testifrelationshipexists.entity.Customer;
 
 /**
@@ -263,5 +266,57 @@ public class CustomerJpaController implements Serializable {
             em.close();
         }
     }
-    
+
+    public boolean hasPurchaseOrders(Customer customer) {
+        if (customer != null) {
+            // Ultimate question: does a customer have Purchase Orders?
+            Query hasPoQry = getEntityManager().createNamedQuery("Customer.hasPurchaseOrdersViaEmpty");
+            hasPoQry.setParameter("customerId", customer);
+            try {
+                Object singleResult = hasPoQry.getSingleResult();
+            } catch (NoResultException ex) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public List<Customer> findCustomerEntities(PurchaseOrderInclusionMethodType inclusionMethod, ExistenceMethodType existenceMethod) {
+        EntityManager em = getEntityManager();
+        List<Customer> customers = null;
+        try {
+            Query qry = null;
+            switch (existenceMethod) {
+                case EMPTY:
+                    switch (inclusionMethod) {
+                        case DOES_NOT_HAVE:
+                            qry = em.createNamedQuery("Customer.findPoEmpty");
+                            break;
+                        case DOES_HAVE:
+                            qry = em.createNamedQuery("Customer.findPoNotEmpty");
+                            break;
+                    }
+                    break;
+                case EXISTS:
+                    switch (inclusionMethod) {
+                        case DOES_NOT_HAVE:
+                            qry = em.createNamedQuery("Customer.findWithoutPo");
+                            break;
+                        case DOES_HAVE:
+                            qry = em.createNamedQuery("Customer.findWithPo");
+                            break;
+                    }
+                    break;
+            }
+            
+            if (qry != null) {
+                customers = qry.getResultList();
+            }
+            
+        } finally {
+            em.close();
+        }
+        return customers;
+    }
+
 }

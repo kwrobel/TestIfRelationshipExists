@@ -7,10 +7,10 @@ package testifrelationshipexists;
 
 import java.util.List;
 import javax.persistence.EntityManagerFactory;
-import javax.persistence.NoResultException;
 import javax.persistence.Persistence;
-import javax.persistence.Query;
 import testifrelationshipexists.dal.CustomerJpaController;
+import testifrelationshipexists.dal.util.ExistenceMethodType;
+import testifrelationshipexists.dal.util.PurchaseOrderInclusionMethodType;
 import testifrelationshipexists.dal.PurchaseOrderJpaController;
 import testifrelationshipexists.entity.Customer;
 import testifrelationshipexists.entity.PurchaseOrder;
@@ -47,23 +47,9 @@ public class TestIfRelationshipExists {
 
     public Boolean getHasCustomerPurchaseOrders() {
         if (hasCustomerPurchaseOrders == null) {
-            hasCustomerPurchaseOrders = hasPurchaseOrders();
+            hasCustomerPurchaseOrders = customerFacade.hasPurchaseOrders(customer);
         }
         return hasCustomerPurchaseOrders;
-    }
-
-    private boolean hasPurchaseOrders() {
-        if (customer != null) {
-            // Ultimate question: does a customer have Purchase Orders?
-            Query hasPoQry = customerFacade.getEntityManager().createNamedQuery("Customer.hasPurchaseOrdersViaEmpty");
-            hasPoQry.setParameter("customerId", customer);
-            try {
-                Object singleResult = hasPoQry.getSingleResult();
-            } catch (NoResultException ex) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private void showPoStatus() {
@@ -79,37 +65,29 @@ public class TestIfRelationshipExists {
     private void showPurchaseOrders() {
 
         // Grab POs for an existing customer
-        if (customer != null) {
-            Query poQry = poFacade.getEntityManager().createNamedQuery("PurchaseOrder.findByCustomerId");
-            poQry.setParameter("customerId", customer);
-            List<PurchaseOrder> resultList = poQry.getResultList();
-            for (PurchaseOrder po : resultList) {
+            List<PurchaseOrder> poList = poFacade.findPurchaseOrderEntities(customer);
+            for (PurchaseOrder po : poList) {
                 System.out.println("Order: " + po.getOrderNum());
             }
-        }
 
     }
 
     private void showCustomerListUsingExists() {
 
-        Query noPoCustsQry = customerFacade.getEntityManager().createNamedQuery("Customer.findWithoutPo");
-        List<Customer> noPoCusts = noPoCustsQry.getResultList();
+        List<Customer> noPoCusts = customerFacade.findCustomerEntities(PurchaseOrderInclusionMethodType.DOES_NOT_HAVE, ExistenceMethodType.EXISTS);
         showCustomerLists(noPoCusts, "CUSTOMERS WITHOUT PURCHASE ORDERS (EXISTS-VERSION)");
 
-        Query poCustsQry = customerFacade.getEntityManager().createNamedQuery("Customer.findWithPo");
-        List<Customer> poCusts = poCustsQry.getResultList();
+        List<Customer> poCusts = customerFacade.findCustomerEntities(PurchaseOrderInclusionMethodType.DOES_HAVE, ExistenceMethodType.EXISTS);
         showCustomerLists(poCusts, "CUSTOMERS WITH PURCHASE ORDERS (EXISTS-VERSION)");
 
     }
 
     private void showCustomerListUsingIsEmpty() {
 
-        Query noPoCustsQry = customerFacade.getEntityManager().createNamedQuery("Customer.findPoEmpty");
-        List<Customer> noPoCusts = noPoCustsQry.getResultList();
+        List<Customer> noPoCusts = customerFacade.findCustomerEntities(PurchaseOrderInclusionMethodType.DOES_NOT_HAVE, ExistenceMethodType.EMPTY);
         showCustomerLists(noPoCusts, "CUSTOMERS WITHOUT PURCHASE ORDERS (EMPTY-VERSION)");
 
-        Query poCustsQry = customerFacade.getEntityManager().createNamedQuery("Customer.findPoNotEmpty");
-        List<Customer> poCusts = poCustsQry.getResultList();
+        List<Customer> poCusts = customerFacade.findCustomerEntities(PurchaseOrderInclusionMethodType.DOES_HAVE, ExistenceMethodType.EMPTY);
         showCustomerLists(poCusts, "CUSTOMERS WITH PURCHASE ORDERS (EMPTY-VERSION)");
 
     }
