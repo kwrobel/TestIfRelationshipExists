@@ -11,6 +11,8 @@ import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Query;
 import javax.persistence.EntityNotFoundException;
+import javax.persistence.TypedQuery;
+import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
 import testifrelationshipexists.dal.exceptions.NonexistentEntityException;
@@ -18,6 +20,7 @@ import testifrelationshipexists.dal.exceptions.PreexistingEntityException;
 import testifrelationshipexists.entity.Product;
 import testifrelationshipexists.entity.Customer;
 import testifrelationshipexists.entity.PurchaseOrder;
+import testifrelationshipexists.entity.PurchaseOrder_;
 
 /**
  *
@@ -199,18 +202,36 @@ public class PurchaseOrderJpaController implements Serializable {
             em.close();
         }
     }
-    
+
     public List<PurchaseOrder> findPurchaseOrderEntities(Customer customer) {
         EntityManager em = getEntityManager();
         List resultList = null;
         if (customer != null) {
+
+            CriteriaBuilder cb = em.getCriteriaBuilder();
+            CriteriaQuery<PurchaseOrder> cq = cb.createQuery(PurchaseOrder.class);
+            Root<PurchaseOrder> fromPurchaseOrder = cq.from(PurchaseOrder.class);
+            cq.select(fromPurchaseOrder);
+            cq.where(cb.equal(fromPurchaseOrder.get(PurchaseOrder_.customerId),customer));
+            TypedQuery<PurchaseOrder> poQry = em.createQuery(cq);
+
             try {
-                Query poQry = em.createNamedQuery("PurchaseOrder.findByCustomerId");
-                poQry.setParameter("customerId", customer);
                 resultList = poQry.getResultList();
             } finally {
                 em.close();
             }
+
+        // Alternative IF entity is still attached to the EntityManager: just
+        // use the getter method. But here the entity has already been detached,
+        // so we need to merge it back in. The resulting query looks to be similar
+        // to what the Criteria Query above produces. Try it...
+/*
+        System.out.println("Merge customer into mergedCustomer...");
+        Customer mergedCustomer = em.merge(customer);
+        System.out.println("Merge complete... calling getter method on mergedCustomer...");
+        resultList = mergedCustomer.getPurchaseOrderList();
+        System.out.println("Getter method finished.");
+*/
         }
         return resultList;
     }

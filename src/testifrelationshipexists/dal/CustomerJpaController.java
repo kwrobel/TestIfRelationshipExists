@@ -18,12 +18,19 @@ import java.util.List;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.NoResultException;
+import javax.persistence.TypedQuery;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.Expression;
+import javax.persistence.criteria.Predicate;
+import javax.persistence.criteria.Subquery;
 import testifrelationshipexists.dal.exceptions.IllegalOrphanException;
 import testifrelationshipexists.dal.exceptions.NonexistentEntityException;
 import testifrelationshipexists.dal.exceptions.PreexistingEntityException;
 import testifrelationshipexists.dal.util.PurchaseOrderInclusionMethodType;
 import testifrelationshipexists.dal.util.ExistenceMethodType;
 import testifrelationshipexists.entity.Customer;
+import testifrelationshipexists.entity.Customer_;
+import testifrelationshipexists.entity.PurchaseOrder_;
 
 /**
  *
@@ -268,15 +275,42 @@ public class CustomerJpaController implements Serializable {
     }
 
     public boolean hasPurchaseOrders(Customer customer) {
+        // Ultimate question: does a customer have Purchase Orders?
+        return hasPurchaseOrders(customer, ExistenceMethodType.EXISTS);
+    }
+
+    public boolean hasPurchaseOrders(Customer customer, ExistenceMethodType existenceMethod) {
         if (customer != null) {
-            // Ultimate question: does a customer have Purchase Orders?
-            Query hasPoQry = getEntityManager().createNamedQuery("Customer.hasPurchaseOrdersViaEmpty");
-            hasPoQry.setParameter("customerId", customer);
+            EntityManager em = getEntityManager();
+            CriteriaBuilder cb = em.getCriteriaBuilder();
+            CriteriaQuery<Long> cq = cb.createQuery(Long.class);
+            Root<Customer> fromCustomer = cq.from(Customer.class);
+            Expression<Long> number1 = cb.literal(1L);
+            cq.select(number1);
+            Predicate customerEqCondition = cb.equal(fromCustomer, customer);
+            Predicate poExistsCondition = null;
+            switch (existenceMethod) {
+                case EMPTY:
+                    poExistsCondition = cb.isNotEmpty(fromCustomer.get(Customer_.purchaseOrderList));
+                    break;
+                case EXISTS:
+                    // Create a proper sub-query for the PurchaseOrder entity to be used in the EXISTS predicate
+                    Subquery<Long> subQry = cq.subquery(Long.class);
+                    Root<PurchaseOrder> fromPurchaseOrder = subQry.from(PurchaseOrder.class);
+                    subQry.select(number1);
+                    subQry.where(cb.equal(fromPurchaseOrder.get(PurchaseOrder_.customerId), fromCustomer));
+                    poExistsCondition = cb.exists(subQry);
+                    break;
+            }
+            cq.where(cb.and(customerEqCondition,poExistsCondition));
+
+            TypedQuery<Long> hasPoQry = em.createQuery(cq);
             try {
                 Object singleResult = hasPoQry.getSingleResult();
             } catch (NoResultException ex) {
                 return false;
             }
+
         }
         return true;
     }
@@ -285,34 +319,43 @@ public class CustomerJpaController implements Serializable {
         EntityManager em = getEntityManager();
         List<Customer> customers = null;
         try {
-            Query qry = null;
+            CriteriaBuilder cb = em.getCriteriaBuilder();
+            CriteriaQuery<Customer> cq = cb.createQuery(Customer.class);
+            Root<Customer> fromCustomer = cq.from(Customer.class);
+            cq.select(fromCustomer);
+
             switch (existenceMethod) {
                 case EMPTY:
                     switch (inclusionMethod) {
                         case DOES_NOT_HAVE:
-                            qry = em.createNamedQuery("Customer.findPoEmpty");
+                            cq.where(cb.isEmpty(fromCustomer.get(Customer_.purchaseOrderList)));
                             break;
                         case DOES_HAVE:
-                            qry = em.createNamedQuery("Customer.findPoNotEmpty");
+                            cq.where(cb.isNotEmpty(fromCustomer.get(Customer_.purchaseOrderList)));
                             break;
                     }
                     break;
                 case EXISTS:
+                    // Create a proper sub-query for the PurchaseOrder entity to be used in the EXISTS predicate
+                    Subquery<PurchaseOrder> subQry = cq.subquery(PurchaseOrder.class);
+                    Root<PurchaseOrder> fromPurchaseOrder = subQry.from(PurchaseOrder.class);
+                    subQry.select(fromPurchaseOrder);
+                    subQry.where(cb.equal(fromPurchaseOrder.get(PurchaseOrder_.customerId), fromCustomer));
+
                     switch (inclusionMethod) {
                         case DOES_NOT_HAVE:
-                            qry = em.createNamedQuery("Customer.findWithoutPo");
+                            cq.where(cb.not(cb.exists(subQry)));
                             break;
                         case DOES_HAVE:
-                            qry = em.createNamedQuery("Customer.findWithPo");
+                            cq.where(cb.exists(subQry));
                             break;
                     }
                     break;
             }
-            
-            if (qry != null) {
-                customers = qry.getResultList();
-            }
-            
+
+            TypedQuery<Customer> qry = em.createQuery(cq);
+            customers = qry.getResultList();
+
         } finally {
             em.close();
         }
