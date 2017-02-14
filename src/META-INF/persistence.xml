@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence version="2.0" xmlns="http://java.sun.com/xml/ns/persistence" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://java.sun.com/xml/ns/persistence http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd">
+  <persistence-unit name="TestIfRelationshipExistsPU" transaction-type="RESOURCE_LOCAL">
+    <provider>org.apache.openjpa.persistence.PersistenceProviderImpl</provider>
+    <class>testifrelationshipexists.entity.DiscountCode</class>
+    <class>testifrelationshipexists.entity.ProductCode</class>
+    <class>testifrelationshipexists.entity.Product</class>
+    <class>testifrelationshipexists.entity.Manufacturer</class>
+    <class>testifrelationshipexists.entity.PurchaseOrder</class>
+    <class>testifrelationshipexists.entity.MicroMarket</class>
+    <class>testifrelationshipexists.entity.Customer</class>
+    <properties>
+      <property name="javax.persistence.jdbc.url" value="jdbc:derby:classpath:sample"/>
+      <property name="javax.persistence.jdbc.password" value="app"/>
+      <property name="javax.persistence.jdbc.driver" value="org.apache.derby.jdbc.EmbeddedDriver"/>
+      <property name="javax.persistence.jdbc.user" value="app"/>
+      <property name="openjpa.jdbc.DBDictionary" value="derby(storeCharsAsNumbers=false)"/>
+      <property name="openjpa.Log" value="DefaultLevel=WARN, Runtime=INFO, Tool=INFO, SQL=TRACE"/>
+    </properties>
+  </persistence-unit>
+</persistence>
